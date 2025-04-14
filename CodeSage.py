@@ -1,5 +1,5 @@
 import streamlit as st
-from openai import OpenAI
+import google.generativeai as genai
 import os
 import json
 import uuid
@@ -253,8 +253,8 @@ if 'chat_history' not in st.session_state:
 if 'current_chat_id' not in st.session_state:
     st.session_state.current_chat_id = str(uuid.uuid4())
 
-if 'openai_api_key' not in st.session_state:
-    st.session_state.openai_api_key = os.getenv("OPENAI_API_KEY", "")
+if 'gemini_api_key' not in st.session_state:
+    st.session_state.gemini_api_key = os.getenv("GEMINI_API_KEY", "")
 
 if 'messages' not in st.session_state:
     st.session_state.messages = []
@@ -306,32 +306,45 @@ def check_language_support(query):
 
 def generate_response(api_key, messages):
     try:
-        client = OpenAI(api_key=api_key)
-        system_message = {
-            "role": "system",
-            "content": """You are CodeSage, an expert AI code assistant specialized in generating high-quality code in HTML, CSS, JavaScript, Python, and SQL only.
-            
-            Guidelines:
-            1. Focus ONLY on HTML, CSS, JavaScript, Python, and SQL code generation.
-            2. Refuse any requests for other programming languages politely.
-            3. Do not perform general web searches or create content unrelated to code generation.
-            4. When generating code, include helpful comments and explanations.
-            5. Follow best practices and modern conventions for each language.
-            6. Always wrap code in proper markdown code blocks with language specification.
-            7. Optimize code for readability and efficiency.
-            8. Provide brief explanations of how the code works after generating it.
-            
-            When users ask questions about code or programming concepts, respond with clear, accurate explanations and examples.
-            """
-        }
+        # Configure Gemini API
+        genai.configure(api_key=api_key)
         
-        response = client.chat.completions.create(
-            model="gpt-4-turbo",
-            messages=[system_message] + messages,
-            temperature=0.7,
-            max_tokens=4000,
-        )
-        return response.choices[0].message.content
+        # Select the model
+        model = genai.GenerativeModel('gemini-1.5-pro')
+        
+        # Build the conversation
+        system_prompt = """You are CodeSage, an expert AI code assistant specialized in generating high-quality code in HTML, CSS, JavaScript, Python, and SQL only.
+        
+        Guidelines:
+        1. Focus ONLY on HTML, CSS, JavaScript, Python, and SQL code generation.
+        2. Refuse any requests for other programming languages politely.
+        3. Do not perform general web searches or create content unrelated to code generation.
+        4. When generating code, include helpful comments and explanations.
+        5. Follow best practices and modern conventions for each language.
+        6. Always wrap code in proper markdown code blocks with language specification.
+        7. Optimize code for readability and efficiency.
+        8. Provide brief explanations of how the code works after generating it.
+        
+        When users ask questions about code or programming concepts, respond with clear, accurate explanations and examples.
+        """
+        
+        # Create the conversation format that Gemini expects
+        chat = model.start_chat(history=[])
+        
+        # Add system prompt as first message
+        prompt_parts = [system_prompt]
+        
+        # Add conversation history
+        for msg in messages:
+            if msg["role"] == "user":
+                prompt_parts.append(f"User: {msg['content']}")
+            else:
+                prompt_parts.append(f"Assistant: {msg['content']}")
+        
+        # Generate response
+        response = chat.send_message(prompt_parts)
+        
+        return response.text
     except Exception as e:
         return f"Error generating response: {str(e)}"
 
@@ -348,13 +361,13 @@ with st.sidebar:
     # API Key input
     with st.expander("🔑 API Settings", expanded=False):
         api_key = st.text_input(
-            "OpenAI API Key",
-            value=st.session_state.openai_api_key,
+            "Gemini API Key",
+            value=st.session_state.gemini_api_key,
             type="password",
-            help="Enter your OpenAI API key to use the service"
+            help="Enter your Gemini API key to use the service"
         )
         if api_key:
-            st.session_state.openai_api_key = api_key
+            st.session_state.gemini_api_key = api_key
     
     # New chat button
     st.markdown("""
@@ -435,8 +448,8 @@ with st.form(key="message_form", clear_on_submit=True):
         submit_button = st.form_submit_button("Send")
     
     with col2:
-        if not st.session_state.openai_api_key:
-            st.warning("Please enter your OpenAI API key in the sidebar.", icon="⚠️")
+        if not st.session_state.gemini_api_key:
+            st.warning("Please enter your Gemini API key in the sidebar.", icon="⚠️")
 
 if submit_button and user_input:
     # Check if message is asking for unsupported language
@@ -445,9 +458,9 @@ if submit_button and user_input:
     # Display user message
     save_message(st.session_state.current_chat_id, "user", user_input)
     
-    if not st.session_state.openai_api_key:
+    if not st.session_state.gemini_api_key:
         save_message(st.session_state.current_chat_id, "assistant", 
-                   "⚠️ Please add your OpenAI API key in the sidebar settings to continue.")
+                   "⚠️ Please add your Gemini API key in the sidebar settings to continue.")
     elif not is_supported:
         save_message(st.session_state.current_chat_id, "assistant", 
                    f"I'm sorry, but I currently only support code generation for HTML, CSS, JavaScript, Python, and SQL. " 
@@ -456,24 +469,17 @@ if submit_button and user_input:
     else:
         # Display a placeholder for the assistant's response
         with st.spinner("CodeSage is thinking..."):
-            # Format messages for API call
-            formatted_messages = []
-            for msg in st.session_state.messages[:-1]:  # Exclude the most recent user message
-                formatted_messages.append({"role": msg["role"], "content": msg["content"]})
-            
-            # Add the most recent user message
-            formatted_messages.append({"role": "user", "content": user_input})
-            
-            # Generate response
-            response = generate_response(st.session_state.openai_api_key, formatted_messages)
-            
             # Check if message is about general search
             if any(term in user_input.lower() for term in ["search", "look up", "find me", "browse", "google"]):
                 if not any(code_term in user_input.lower() for code_term in ["code", "function", "program", "script", "html", "css", "javascript", "python", "sql"]):
                     response = "I'm designed specifically for code generation and programming help in HTML, CSS, JavaScript, Python, and SQL. I can't perform general web searches or browse the internet. Please ask me about code-related topics instead!"
-            
-            # Save the assistant's response
-            save_message(st.session_state.current_chat_id, "assistant", response)
+                    save_message(st.session_state.current_chat_id, "assistant", response)
+            else:
+                # Generate response with Gemini
+                response = generate_response(st.session_state.gemini_api_key, st.session_state.messages)
+                
+                # Save the assistant's response
+                save_message(st.session_state.current_chat_id, "assistant", response)
     
     # Rerun to update the UI with new messages
     st.rerun()
