@@ -7,6 +7,13 @@ import time
 from datetime import datetime
 from streamlit_lottie import st_lottie
 import requests
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
+# Get API key from environment variable
+gemini_key = os.getenv('GEMINI')
 
 # Set page configuration
 st.set_page_config(
@@ -253,9 +260,6 @@ if 'chat_history' not in st.session_state:
 if 'current_chat_id' not in st.session_state:
     st.session_state.current_chat_id = str(uuid.uuid4())
 
-if 'gemini_api_key' not in st.session_state:
-    st.session_state.gemini_api_key = os.getenv("GEMINI_API_KEY", "")
-
 if 'messages' not in st.session_state:
     st.session_state.messages = []
 
@@ -304,10 +308,10 @@ def check_language_support(query):
             return False, lang
     return True, None
 
-def generate_response(api_key, messages):
+def generate_response(messages):
     try:
-        # Configure Gemini API
-        genai.configure(api_key=api_key)
+        # Use API key from .env file
+        genai.configure(api_key=gemini_key)
         
         # Select the model
         model = genai.GenerativeModel('gemini-1.5-pro')
@@ -348,6 +352,9 @@ def generate_response(api_key, messages):
     except Exception as e:
         return f"Error generating response: {str(e)}"
 
+# Check if API key is available
+api_key_available = gemini_key is not None and gemini_key != ""
+
 # Sidebar
 with st.sidebar:
     st.title("🧠 CodeSage")
@@ -358,16 +365,12 @@ with st.sidebar:
     if lottie_coding:
         st_lottie(lottie_coding, speed=1, height=180, key="coding")
     
-    # API Key input
-    with st.expander("🔑 API Settings", expanded=False):
-        api_key = st.text_input(
-            "Gemini API Key",
-            value=st.session_state.gemini_api_key,
-            type="password",
-            help="Enter your Gemini API key to use the service"
-        )
-        if api_key:
-            st.session_state.gemini_api_key = api_key
+    # API key status
+    if api_key_available:
+        st.success("✅ API Key configured from .env file")
+    else:
+        st.error("❌ API Key not found in .env file")
+        st.info("Please add your Gemini API key to the .env file as GEMINI=your_api_key")
     
     # New chat button
     st.markdown("""
@@ -448,8 +451,8 @@ with st.form(key="message_form", clear_on_submit=True):
         submit_button = st.form_submit_button("Send")
     
     with col2:
-        if not st.session_state.gemini_api_key:
-            st.warning("Please enter your Gemini API key in the sidebar.", icon="⚠️")
+        if not api_key_available:
+            st.warning("Please add your Gemini API key to the .env file", icon="⚠️")
 
 if submit_button and user_input:
     # Check if message is asking for unsupported language
@@ -458,9 +461,9 @@ if submit_button and user_input:
     # Display user message
     save_message(st.session_state.current_chat_id, "user", user_input)
     
-    if not st.session_state.gemini_api_key:
+    if not api_key_available:
         save_message(st.session_state.current_chat_id, "assistant", 
-                   "⚠️ Please add your Gemini API key in the sidebar settings to continue.")
+                   "⚠️ Please add your Gemini API key to the .env file to continue.")
     elif not is_supported:
         save_message(st.session_state.current_chat_id, "assistant", 
                    f"I'm sorry, but I currently only support code generation for HTML, CSS, JavaScript, Python, and SQL. " 
@@ -476,7 +479,7 @@ if submit_button and user_input:
                     save_message(st.session_state.current_chat_id, "assistant", response)
             else:
                 # Generate response with Gemini
-                response = generate_response(st.session_state.gemini_api_key, st.session_state.messages)
+                response = generate_response(st.session_state.messages)
                 
                 # Save the assistant's response
                 save_message(st.session_state.current_chat_id, "assistant", response)
