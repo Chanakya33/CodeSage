@@ -352,7 +352,7 @@ def generate_response(messages):
     except Exception as e:
         return f"Error generating response: {str(e)}"
 
-# Check if API key is available but don't display status
+# Check if API key is available
 api_key_available = gemini_key is not None and gemini_key != ""
 
 # Sidebar
@@ -365,7 +365,12 @@ with st.sidebar:
     if lottie_coding:
         st_lottie(lottie_coding, speed=1, height=180, key="coding")
     
-    # API key status section removed
+    # API key status
+    if api_key_available:
+        st.success("✅ API Key configured from .env file")
+    else:
+        st.error("❌ API Key not found in .env file")
+        st.info("Please add your Gemini API key to the .env file as GEMINI=your_api_key")
     
     # New chat button
     st.markdown("""
