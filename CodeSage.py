@@ -180,22 +180,16 @@ st.markdown("""
         background-color: rgba(100, 255, 218, 0.1);
     }
     
-    /* Chat history container */
-    .chat-history-container {
-        display: flex;
-        flex-direction: column;
-        margin-bottom: 0.5rem;
-    }
-    
-    /* Chat history item */
-    .chat-history-item {
-        display: flex;
+    /* Chat history buttons */
+    .chat-history-button {
+        width: 100%;
         background-color: var(--navy-dark);
         color: var(--text-secondary);
+        border: none;
         border-radius: 4px;
         padding: 0.5rem;
         margin-bottom: 0.5rem;
-        align-items: center;
+        text-align: left;
         cursor: pointer;
         transition: all 0.3s ease;
         overflow: hidden;
@@ -203,54 +197,15 @@ st.markdown("""
         white-space: nowrap;
     }
     
-    .chat-history-item:hover {
+    .chat-history-button:hover {
         background-color: var(--navy-light);
         color: var(--text-primary);
     }
     
-    .chat-history-item.active {
+    .chat-history-button.active {
         background-color: var(--navy-light);
         color: var(--accent);
         border-left: 2px solid var(--accent);
-    }
-    
-    /* Chat history item title */
-    .chat-title {
-        flex-grow: 1;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-    
-    /* Chat history action buttons */
-    .chat-actions {
-        display: flex;
-        gap: 0.5rem;
-        margin-left: 0.5rem;
-    }
-    
-    .action-button {
-        background-color: transparent;
-        color: var(--text-secondary);
-        border: none;
-        border-radius: 4px;
-        padding: 0.1rem 0.3rem;
-        font-size: 0.7rem;
-        cursor: pointer;
-        transition: all 0.3s ease;
-    }
-    
-    .action-button:hover {
-        background-color: rgba(100, 255, 218, 0.1);
-        color: var(--accent);
-    }
-    
-    .share-button {
-        color: #6c74dc;
-    }
-    
-    .delete-button {
-        color: #ff6b6b;
     }
     
     /* Loading animation */
@@ -295,120 +250,6 @@ st.markdown("""
         color: var(--text-secondary);
         font-size: 0.8rem;
     }
-    
-    /* Share modal */
-    .share-modal {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background-color: rgba(10, 25, 47, 0.9);
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        z-index: 1000;
-    }
-    
-    .share-modal-content {
-        background-color: var(--navy);
-        padding: 2rem;
-        border-radius: 0.5rem;
-        width: 80%;
-        max-width: 600px;
-    }
-    
-    .share-modal-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 1rem;
-    }
-    
-    .share-modal-title {
-        color: var(--text-primary);
-        font-size: 1.2rem;
-        font-weight: 600;
-    }
-    
-    .close-button {
-        background-color: transparent;
-        color: var(--text-secondary);
-        border: none;
-        font-size: 1.5rem;
-        cursor: pointer;
-        transition: all 0.3s ease;
-    }
-    
-    .close-button:hover {
-        color: var(--accent);
-    }
-    
-    .share-options {
-        display: flex;
-        gap: 1rem;
-        margin-top: 1rem;
-    }
-    
-    .share-option {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        color: var(--text-secondary);
-        cursor: pointer;
-        transition: all 0.3s ease;
-        padding: 0.5rem;
-        border-radius: 0.5rem;
-    }
-    
-    .share-option:hover {
-        background-color: var(--navy-light);
-        color: var(--text-primary);
-    }
-    
-    .share-icon {
-        font-size: 2rem;
-        margin-bottom: 0.5rem;
-    }
-    
-    .share-label {
-        font-size: 0.8rem;
-    }
-    
-    /* Delete confirmation */
-    .delete-confirm {
-        display: flex;
-        gap: 0.5rem;
-        margin-top: 1rem;
-    }
-    
-    .confirm-button {
-        background-color: #ff6b6b;
-        color: white;
-        border: none;
-        border-radius: 4px;
-        padding: 0.5rem 1rem;
-        cursor: pointer;
-        transition: all 0.3s ease;
-    }
-    
-    .confirm-button:hover {
-        background-color: #e95555;
-    }
-    
-    .cancel-button {
-        background-color: var(--navy-light);
-        color: var(--text-primary);
-        border: none;
-        border-radius: 4px;
-        padding: 0.5rem 1rem;
-        cursor: pointer;
-        transition: all 0.3s ease;
-    }
-    
-    .cancel-button:hover {
-        background-color: var(--navy);
-    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -421,19 +262,6 @@ if 'current_chat_id' not in st.session_state:
 
 if 'messages' not in st.session_state:
     st.session_state.messages = []
-
-# For share/delete functionality
-if 'show_share_modal' not in st.session_state:
-    st.session_state.show_share_modal = False
-
-if 'share_chat_id' not in st.session_state:
-    st.session_state.share_chat_id = None
-
-if 'confirm_delete' not in st.session_state:
-    st.session_state.confirm_delete = False
-
-if 'delete_chat_id' not in st.session_state:
-    st.session_state.delete_chat_id = None
 
 # Define supported languages
 SUPPORTED_LANGUAGES = ["HTML", "CSS", "JavaScript", "Python", "SQL"]
@@ -480,45 +308,6 @@ def check_language_support(query):
             return False, lang
     return True, None
 
-def share_chat(chat_id):
-    st.session_state.show_share_modal = True
-    st.session_state.share_chat_id = chat_id
-
-def delete_chat(chat_id):
-    st.session_state.confirm_delete = True
-    st.session_state.delete_chat_id = chat_id
-
-def confirm_delete_chat():
-    if st.session_state.delete_chat_id in st.session_state.chat_history:
-        # If we're deleting the current chat, create a new one
-        if st.session_state.delete_chat_id == st.session_state.current_chat_id:
-            create_new_chat()
-        # Delete the chat
-        del st.session_state.chat_history[st.session_state.delete_chat_id]
-        # Reset states
-        st.session_state.confirm_delete = False
-        st.session_state.delete_chat_id = None
-
-def cancel_delete():
-    st.session_state.confirm_delete = False
-    st.session_state.delete_chat_id = None
-
-def close_share_modal():
-    st.session_state.show_share_modal = False
-    st.session_state.share_chat_id = None
-
-def export_chat_as_text(chat_id):
-    if chat_id in st.session_state.chat_history:
-        chat_text = f"CodeSage Chat - {st.session_state.chat_history[chat_id]['title']}\n"
-        chat_text += f"Date: {st.session_state.chat_history[chat_id]['timestamp']}\n\n"
-        
-        for msg in st.session_state.chat_history[chat_id]["messages"]:
-            sender = "You" if msg["role"] == "user" else "CodeSage"
-            chat_text += f"{sender} ({msg['timestamp']}):\n{msg['content']}\n\n"
-        
-        return chat_text
-    return ""
-
 def generate_response(messages):
     try:
         # Use API key from .env file
@@ -563,7 +352,7 @@ def generate_response(messages):
     except Exception as e:
         return f"Error generating response: {str(e)}"
 
-# Check if API key is available but don't display status
+# Check if API key is available
 api_key_available = gemini_key is not None and gemini_key != ""
 
 # Sidebar
@@ -576,7 +365,20 @@ with st.sidebar:
     if lottie_coding:
         st_lottie(lottie_coding, speed=1, height=180, key="coding")
     
+    # API key status
+    if api_key_available:
+        st.success("✅ API Key configured from .env file")
+    else:
+        st.error("❌ API Key not found in .env file")
+        st.info("Please add your Gemini API key to the .env file as GEMINI=your_api_key")
+    
     # New chat button
+    st.markdown("""
+    <div class="new-chat-button" id="new-chat-button">
+        + New Conversation
+    </div>
+    """, unsafe_allow_html=True)
+    
     if st.button("+ New Conversation", key="new_chat"):
         create_new_chat()
     
@@ -594,20 +396,11 @@ with st.sidebar:
         )
         
         for chat_id, chat_data in sorted_chats:
-            # Create a container for each chat history item with title and action buttons
-            col1, col2, col3 = st.columns([4, 1, 1])
-            
-            with col1:
-                if st.button(f"{chat_data['title']}", key=f"history_{chat_id}"):
-                    load_chat(chat_id)
-            
-            with col2:
-                if st.button("🔗", key=f"share_{chat_id}", help="Share conversation"):
-                    share_chat(chat_id)
-            
-            with col3:
-                if st.button("🗑️", key=f"delete_{chat_id}", help="Delete conversation"):
-                    delete_chat(chat_id)
+            # Format the button with conditional styling for active chat
+            active_class = "active" if chat_id == st.session_state.current_chat_id else ""
+            if st.button(f"{chat_data['title']}", key=f"history_{chat_id}", 
+                        help=f"Created: {chat_data['timestamp']}"):
+                load_chat(chat_id)
     
     # Supported languages
     st.markdown("### 💻 Supported Languages")
@@ -693,109 +486,6 @@ if submit_button and user_input:
     
     # Rerun to update the UI with new messages
     st.rerun()
-
-# Share modal
-if st.session_state.show_share_modal:
-    chat_id = st.session_state.share_chat_id
-    if chat_id in st.session_state.chat_history:
-        chat_title = st.session_state.chat_history[chat_id]["title"]
-        chat_text = export_chat_as_text(chat_id)
-        
-        # Display share modal
-        st.markdown(f"""
-        <div class="share-modal">
-            <div class="share-modal-content">
-                <div class="share-modal-header">
-                    <div class="share-modal-title">Share Conversation: {chat_title}</div>
-                    <button class="close-button" onclick="handleCloseModal()">×</button>
-                </div>
-                <textarea id="chat-export" style="width:100%; height:200px; background-color:#1E2D3D; color:#CCD6F6; border:none; border-radius:4px; padding:1rem; margin-bottom:1rem;" readonly>{chat_text}</textarea>
-                <div style="display:flex; justify-content:space-between;">
-                    <button onclick="copyToClipboard()" class="stButton button">Copy to Clipboard</button>
-                    <div class="share-options">
-                        <div class="share-option" onclick="shareToWhatsApp()">
-                            <span class="share-icon">📱</span>
-                            <span class="share-label">WhatsApp</span>
-                        </div>
-                        <div class="share-option" onclick="shareToEmail()">
-                            <span class="share-icon">✉️</span>
-                            <span class="share-label">Email</span>
-                        </div>
-                        <div class="share-option" onclick="downloadAsText()">
-                            <span class="share-icon">📄</span>
-                            <span class="share-label">Download</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <script>
-            function handleCloseModal() {{
-             const buttons = parent.document.querySelectorAll('button');
-                for (let i = 0; i < buttons.length; i++) {{
-                  if (buttons[i].innerText === 'Close Share Modal') {{
-                        buttons[i].click();
-                        break;
-                    }}
-                }}
-            }}
-            
-            function copyToClipboard() {{
-                const textarea = document.getElementById('chat-export');
-                textarea.select();
-                document.execCommand('copy');
-                alert('Copied to clipboard!');
-            }}
-            
-            function shareToWhatsApp() {{
-                const text = encodeURIComponent(document.getElementById('chat-export').value);
-                window.open(`https://wa.me/?text=${{text}}`, '_blank');
-            }}
-            
-            function shareToEmail() {{
-                const subject = encodeURIComponent('CodeSage Chat History');
-                const body = encodeURIComponent(document.getElementById('chat-export').value);
-                window.location.href = `mailto:?subject=${{subject}}&body=${{body}}`;
-            }}
-            
-            function downloadAsText() {{
-                const text = document.getElementById('chat-export').value;
-                const filename = 'codesage-chat-history.txt';
-                const element = document.createElement('a');
-                element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
-                element.setAttribute('download', filename);
-                element.style.display = 'none';
-                document.body.appendChild(element);
-                element.click();
-                document.body.removeChild(element);
-            }}
-        </script>
-        """, unsafe_allow_html=True)
-        
-        # Hidden button to close modal (triggered by JavaScript)
-        if st.button("Close Share Modal", key="close_share_modal"):
-            close_share_modal()
-
-# Delete confirmation
-if st.session_state.confirm_delete:
-    chat_id = st.session_state.delete_chat_id
-    if chat_id in st.session_state.chat_history:
-        chat_title = st.session_state.chat_history[chat_id]["title"]
-        
-        # Display confirmation dialog
-        st.warning(f"Are you sure you want to delete '{chat_title}'?")
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            if st.button("Yes, delete", key="confirm_delete"):
-                confirm_delete_chat()
-                st.rerun()
-        
-        with col2:
-            if st.button("Cancel", key="cancel_delete"):
-                cancel_delete()
-                st.rerun()
 
 # Bottom space
 st.markdown("<br><br>", unsafe_allow_html=True)
