@@ -16,13 +16,20 @@ if not api_key:
     st.stop()
 
 # Configure the generative AI model
-genai.configure(api_key=api_key)
-model = genai.GenerativeModel('gemini-pro')
+try:
+    genai.configure(api_key=api_key)
+    # Use the correct free model name - gemini-1.5-flash instead of gemini-pro
+    model = genai.GenerativeModel('gemini-1.5-flash')
+except Exception as e:
+    st.error(f"Error configuring Gemini API: {str(e)}")
+    st.error("If you see a model not found error, you may need to check the available models.")
+    st.info("For free tier, try using 'gemini-1.5-flash' instead of 'gemini-pro'")
+    st.stop()
 
 # App title and styling
 st.set_page_config(
-    page_title="AI Code Assistant",
-    page_icon="💻",
+    page_title="CodeCraft AI",
+    page_icon="🧩",
     layout="wide",
 )
 
@@ -100,12 +107,12 @@ st.markdown("""
 if 'chat_history' not in st.session_state:
     st.session_state.chat_history = []
 
-if 'messages' not in st.session_state:
-    st.session_state.messages = []
+if 'input_key' not in st.session_state:
+    st.session_state.input_key = str(uuid.uuid4())
 
-# App title
-st.markdown("<h1 style='text-align: center; color: #e0e1dd;'>AI Code Assistant</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: #778da9;'>Ask me to generate code in any programming language</p>", unsafe_allow_html=True)
+# Function to reset the input field
+def reset_input():
+    st.session_state.input_key = str(uuid.uuid4())
 
 # Function to detect code in a response
 def extract_code_blocks(text):
@@ -142,14 +149,60 @@ def extract_code_blocks(text):
 # Function to delete a chat message
 def delete_message(message_id):
     st.session_state.chat_history = [msg for msg in st.session_state.chat_history if msg['id'] != message_id]
-    st.experimental_rerun()
+    st.rerun()
+
+# Function to handle message submission
+def handle_submit(user_input):
+    if user_input.strip():
+        # Add user message to chat history
+        message_id = str(uuid.uuid4())
+        timestamp = datetime.now().strftime("%I:%M %p · %d %b %Y")
+        
+        st.session_state.chat_history.append({
+            'id': message_id,
+            'role': 'user',
+            'content': user_input,
+            'timestamp': timestamp
+        })
+        
+        # Generate AI response
+        try:
+            with st.spinner("Generating code..."):
+                ai_response = generate_code(user_input)
+            
+            # Add AI response to chat history
+            ai_message_id = str(uuid.uuid4())
+            st.session_state.chat_history.append({
+                'id': ai_message_id,
+                'role': 'assistant',
+                'content': ai_response,
+                'timestamp': timestamp
+            })
+        except Exception as e:
+            error_message = str(e)
+            st.error(f"Error: {error_message}")
+            
+            # Add error message to chat history
+            error_message_id = str(uuid.uuid4())
+            st.session_state.chat_history.append({
+                'id': error_message_id,
+                'role': 'assistant',
+                'content': f"Error generating code: {error_message}",
+                'timestamp': timestamp
+            })
+        
+        # Reset the input field by using a new key
+        reset_input()
+        
+        # Use st.rerun() instead of experimental_rerun
+        st.rerun()
 
 # Function to generate code
 def generate_code(prompt):
     try:
         # Enhance the prompt to encourage code generation
         enhanced_prompt = f"""
-        You are an expert programmer. Generate clean, optimized, and working code for the following request:
+        You are an elite-level programmer. Generate clean, optimized, and working code for the following request:
         
         {prompt}
         
@@ -158,20 +211,65 @@ def generate_code(prompt):
         Include helpful comments to explain complex parts.
         """
         
-        response = model.generate_content(enhanced_prompt)
+        # Set proper generation parameters
+        generation_config = {
+            "temperature": 0.7,
+            "top_p": 0.95,
+            "top_k": 64,
+            "max_output_tokens": 8192,
+        }
+        
+        # Use the safety settings appropriate for code generation
+        safety_settings = [
+            {
+                "category": "HARM_CATEGORY_HARASSMENT",
+                "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+                "category": "HARM_CATEGORY_HATE_SPEECH",
+                "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+                "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+                "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+                "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+            }
+        ]
+        
+        response = model.generate_content(
+            enhanced_prompt,
+            generation_config=generation_config,
+            safety_settings=safety_settings
+        )
+        
         return response.text
     except Exception as e:
         return f"Error generating code: {str(e)}"
 
+# Add fallback to list available models
+def list_available_models():
+    try:
+        models = genai.list_models()
+        model_names = [model.name for model in models]
+        return model_names
+    except Exception as e:
+        return f"Error listing models: {str(e)}"
+
+# App title
+st.markdown("<h1 style='text-align: center; color: #e0e1dd;'>CodeCraft AI</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: #778da9;'>Ask me to generate code in any programming language</p>", unsafe_allow_html=True)
+
 # Display chat history
-for message in st.session_state.chat_history:
+for idx, message in enumerate(st.session_state.chat_history):
     with st.container():
         if message['role'] == 'user':
             st.markdown(f"""
             <div class='chat-container'>
                 <div class='header'>
                     <strong>You</strong>
-                    <button class='delete-btn' onclick="delete_message('{message['id']}')">⋮</button>
                 </div>
                 <div class='user-message'>
                     {message['content']}
@@ -183,8 +281,7 @@ for message in st.session_state.chat_history:
             st.markdown(f"""
             <div class='chat-container'>
                 <div class='header'>
-                    <strong>AI Assistant</strong>
-                    <button class='delete-btn' onclick="delete_message('{message['id']}')">⋮</button>
+                    <strong>CodeCraft AI</strong>
                 </div>
                 <div class='assistant-message'>
             """, unsafe_allow_html=True)
@@ -203,52 +300,32 @@ for message in st.session_state.chat_history:
             </div>
             """, unsafe_allow_html=True)
 
-# User input
-col1, col2 = st.columns([6, 1])
-with col1:
-    user_input = st.text_area("Ask me to generate code...", height=100, key="user_input")
+# User input form
+with st.form(key="message_form", clear_on_submit=True):
+    col1, col2 = st.columns([6, 1])
+    with col1:
+        user_input = st.text_area("Ask me to generate code...", height=100, key=st.session_state.input_key)
+    with col2:
+        st.write("")
+        st.write("")
+        submit_button = st.form_submit_button("Send")
+    
+    if submit_button and user_input.strip():
+        # Process outside the form to prevent immediate rerun issues
+        st.session_state.current_input = user_input
 
-with col2:
-    st.write("")
-    st.write("")
-    if st.button("Send", key="send_button"):
-        if user_input.strip():
-            # Add user message to chat history
-            message_id = str(uuid.uuid4())
-            timestamp = datetime.now().strftime("%I:%M %p · %d %b %Y")
-            
-            st.session_state.chat_history.append({
-                'id': message_id,
-                'role': 'user',
-                'content': user_input,
-                'timestamp': timestamp
-            })
-            
-            # Generate AI response
-            with st.spinner("Generating code..."):
-                ai_response = generate_code(user_input)
-            
-            # Add AI response to chat history
-            ai_message_id = str(uuid.uuid4())
-            st.session_state.chat_history.append({
-                'id': ai_message_id,
-                'role': 'assistant',
-                'content': ai_response,
-                'timestamp': timestamp
-            })
-            
-            # Clear the input area
-            st.session_state.user_input = ""
-            
-            # Refresh the page to show new messages
-            st.experimental_rerun()
+# Process the submitted input (if any)
+if 'current_input' in st.session_state and st.session_state.current_input:
+    user_input = st.session_state.current_input
+    st.session_state.current_input = None  # Clear it to prevent reprocessing
+    handle_submit(user_input)
 
 # Add a clear button to delete all chat history
 if st.button("Clear Chat History"):
     st.session_state.chat_history = []
-    st.experimental_rerun()
+    st.rerun()
 
-# Instructions for the .env file
+# Instructions in sidebar
 st.sidebar.title("Setup Instructions")
 st.sidebar.info(
     "To use this application, you need a Gemini API key.\n\n"
@@ -256,6 +333,17 @@ st.sidebar.info(
     "2. Add your API key as: `GEMINI_API_KEY=your_api_key_here`\n"
     "3. Create a `.gitignore` file and add `.env` to it to keep your key secure"
 )
+
+# Add information about available models
+st.sidebar.title("Available Models")
+if st.sidebar.button("List Available Models"):
+    model_names = list_available_models()
+    if isinstance(model_names, list):
+        st.sidebar.write("These models are available with your API key:")
+        for name in model_names:
+            st.sidebar.write(f"- {name}")
+    else:
+        st.sidebar.error(model_names)  # Display error message
 
 # Show example prompts
 st.sidebar.title("Example Prompts")
