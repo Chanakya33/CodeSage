@@ -152,6 +152,38 @@ def delete_message(message_id):
     st.session_state.chat_history = [msg for msg in st.session_state.chat_history if msg['id'] != message_id]
     st.rerun()  # Updated to use st.rerun()
 
+# Function to check if prompt is requesting code
+def is_code_request(prompt):
+    # List of code-related keywords
+    code_keywords = [
+        'code', 'function', 'program', 'script', 'algorithm', 'class', 'method',
+        'implement', 'develop', 'build', 'create a', 'write a', 'generate a',
+        'python', 'javascript', 'html', 'css', 'java', 'c++', 'c#', 'ruby', 'php',
+        'typescript', 'swift', 'kotlin', 'rust', 'go', 'dart', 'react', 'angular',
+        'vue', 'node', 'django', 'flask', 'express', 'api', 'database', 'sql',
+        'mongodb', 'json', 'xml', 'app', 'application', 'git', 'docker', 'aws',
+        'azure', 'tensorflow', 'pytorch', 'numpy', 'pandas', 'scikit', 'matplotlib',
+        'selenium', 'beautiful soup', 'regex', 'rest', 'graphql', 'web scraping'
+    ]
+    
+    # Non-code patterns (questions about theory, explanations, etc.)
+    non_code_patterns = [
+        r'explain about', r'what is', r'tell me about', r'how does', r'describe',
+        r'history of', r'difference between', r'compare', r'advantages of',
+        r'disadvantages', r'pros and cons', r'benefits of', r'drawbacks of',
+        r'when to use', r'why use', r'definition of', r'meaning of', r'features of',
+        r'characteristics', r'theory', r'concept', r'principles', r'explain'
+    ]
+    
+    # Check if the prompt contains any code-related keywords
+    has_code_keywords = any(keyword.lower() in prompt.lower() for keyword in code_keywords)
+    
+    # Check if the prompt matches any non-code patterns
+    is_non_code_request = any(re.search(pattern, prompt.lower()) for pattern in non_code_patterns)
+    
+    # Return True if it has code keywords and doesn't match non-code patterns
+    return has_code_keywords and not is_non_code_request
+
 # Function to handle message submission
 def handle_submit(user_input):
     if user_input.strip():
@@ -166,29 +198,51 @@ def handle_submit(user_input):
             'timestamp': timestamp
         })
         
-        # Generate AI response
-        try:
-            with st.spinner("Generating code..."):
-                ai_response = generate_code(user_input)
-            
-            # Add AI response to chat history
-            ai_message_id = str(uuid.uuid4())
+        # Check if the prompt is requesting code or not
+        if is_code_request(user_input):
+            # Generate AI response for code
+            try:
+                with st.spinner("Generating code..."):
+                    ai_response = generate_code(user_input)
+                
+                # Add AI response to chat history
+                ai_message_id = str(uuid.uuid4())
+                st.session_state.chat_history.append({
+                    'id': ai_message_id,
+                    'role': 'assistant',
+                    'content': ai_response,
+                    'timestamp': timestamp
+                })
+            except Exception as e:
+                error_message = str(e)
+                st.error(f"Error: {error_message}")
+                
+                # Add error message to chat history
+                error_message_id = str(uuid.uuid4())
+                st.session_state.chat_history.append({
+                    'id': error_message_id,
+                    'role': 'assistant',
+                    'content': f"Error generating code: {error_message}",
+                    'timestamp': timestamp
+                })
+        else:
+            # Handle non-code requests with a helpful message
+            non_code_response = """
+I'm CodeCraft AI, designed specifically to help you generate code. I can't provide explanations about concepts, theories, or general information.
+
+Please rephrase your request to ask for specific code implementation, such as:
+- "Create a Python function to..."
+- "Write JavaScript code that..."
+- "Build an HTML form with..."
+
+For general information, you might want to use a different AI assistant or search engine.
+"""
+            # Add non-code response to chat history
+            non_code_message_id = str(uuid.uuid4())
             st.session_state.chat_history.append({
-                'id': ai_message_id,
+                'id': non_code_message_id,
                 'role': 'assistant',
-                'content': ai_response,
-                'timestamp': timestamp
-            })
-        except Exception as e:
-            error_message = str(e)
-            st.error(f"Error: {error_message}")
-            
-            # Add error message to chat history
-            error_message_id = str(uuid.uuid4())
-            st.session_state.chat_history.append({
-                'id': error_message_id,
-                'role': 'assistant',
-                'content': f"Error generating code: {error_message}",
+                'content': non_code_response,
                 'timestamp': timestamp
             })
         
@@ -201,15 +255,19 @@ def handle_submit(user_input):
 # Function to generate code
 def generate_code(prompt):
     try:
-        # Enhance the prompt to encourage code generation
+        # Enhance the prompt to ensure only code is generated
         enhanced_prompt = f"""
-        You are an elite-level programmer. Generate clean, optimized, and working code for the following request:
+        You are CodeCraft AI, an elite-level programmer that ONLY generates code, never explanations or theory.
+        
+        Generate clean, optimized, and working code for the following request:
         
         {prompt}
         
-        Think step by step, then provide the complete and correct implementation.
+        Provide ONLY the complete implementation with no explanations before or after the code.
         Put all code in proper markdown code blocks with appropriate language tags.
-        Include helpful comments to explain complex parts.
+        Include helpful comments within the code to explain complex parts.
+        
+        DO NOT provide any explanations outside of code comments. Focus exclusively on generating functional code.
         """
         
         # Set proper generation parameters
@@ -335,6 +393,14 @@ def main():
     - "Generate a JavaScript function that calculates Fibonacci sequence"
     - "Build a Flask API with a POST endpoint to accept JSON data"
     - "Create a React component for a form with validation"
+    """)
+    
+    # Add a clear note about the purpose of the agent
+    st.sidebar.title("About CodeCraft AI")
+    st.sidebar.info("""
+    CodeCraft AI is designed specifically to generate code. It cannot provide explanations about concepts, theories, or general information. 
+    
+    Please phrase your requests as specific code implementation tasks.
     """)
 
 # Add this condition to ensure proper script execution
