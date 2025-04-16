@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 import re
 import uuid
 from datetime import datetime
+import sys
 
 # Load environment variables
 load_dotenv()
@@ -149,7 +150,7 @@ def extract_code_blocks(text):
 # Function to delete a chat message
 def delete_message(message_id):
     st.session_state.chat_history = [msg for msg in st.session_state.chat_history if msg['id'] != message_id]
-    st.rerun()
+    st.rerun()  # Updated to use st.rerun()
 
 # Function to handle message submission
 def handle_submit(user_input):
@@ -194,7 +195,7 @@ def handle_submit(user_input):
         # Reset the input field by using a new key
         reset_input()
         
-        # Use st.rerun() instead of experimental_rerun
+        # Updated to use st.rerun()
         st.rerun()
 
 # Function to generate code
@@ -249,7 +250,7 @@ def generate_code(prompt):
     except Exception as e:
         return f"Error generating code: {str(e)}"
 
-# Add fallback to list available models
+# Function to list available models
 def list_available_models():
     try:
         models = genai.list_models()
@@ -258,99 +259,84 @@ def list_available_models():
     except Exception as e:
         return f"Error listing models: {str(e)}"
 
-# App title
-st.markdown("<h1 style='text-align: center; color: #e0e1dd;'>CodeCraft AI</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: #778da9;'>Ask me to generate code in any programming language</p>", unsafe_allow_html=True)
+def main():
+    # App title
+    st.markdown("<h1 style='text-align: center; color: #e0e1dd;'>CodeCraft AI</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #778da9;'>Ask me to generate code in any programming language</p>", unsafe_allow_html=True)
 
-# Display chat history
-for idx, message in enumerate(st.session_state.chat_history):
-    with st.container():
-        if message['role'] == 'user':
-            st.markdown(f"""
-            <div class='chat-container'>
-                <div class='header'>
-                    <strong>You</strong>
+    # Display chat history
+    for idx, message in enumerate(st.session_state.chat_history):
+        with st.container():
+            if message['role'] == 'user':
+                st.markdown(f"""
+                <div class='chat-container'>
+                    <div class='header'>
+                        <strong>You</strong>
+                    </div>
+                    <div class='user-message'>
+                        {message['content']}
+                        <div class='timestamp'>{message['timestamp']}</div>
+                    </div>
                 </div>
-                <div class='user-message'>
-                    {message['content']}
-                    <div class='timestamp'>{message['timestamp']}</div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown(f"""
+                <div class='chat-container'>
+                    <div class='header'>
+                        <strong>CodeCraft AI</strong>
+                    </div>
+                    <div class='assistant-message'>
+                """, unsafe_allow_html=True)
+                
+                # Process and display content with code blocks
+                content_blocks = extract_code_blocks(message['content'])
+                for language, block in content_blocks:
+                    if language:  # This is a code block
+                        st.code(block, language=language)
+                    else:  # This is regular text
+                        st.markdown(block)
+                
+                st.markdown(f"""
+                        <div class='timestamp'>{message['timestamp']}</div>
+                    </div>
                 </div>
-            </div>
-            """, unsafe_allow_html=True)
-        else:
-            st.markdown(f"""
-            <div class='chat-container'>
-                <div class='header'>
-                    <strong>CodeCraft AI</strong>
-                </div>
-                <div class='assistant-message'>
-            """, unsafe_allow_html=True)
-            
-            # Process and display content with code blocks
-            content_blocks = extract_code_blocks(message['content'])
-            for language, block in content_blocks:
-                if language:  # This is a code block
-                    st.code(block, language=language)
-                else:  # This is regular text
-                    st.markdown(block)
-            
-            st.markdown(f"""
-                    <div class='timestamp'>{message['timestamp']}</div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+                """, unsafe_allow_html=True)
 
-# User input form
-with st.form(key="message_form", clear_on_submit=True):
-    col1, col2 = st.columns([6, 1])
-    with col1:
-        user_input = st.text_area("Ask me to generate code...", height=100, key=st.session_state.input_key)
-    with col2:
-        st.write("")
-        st.write("")
-        submit_button = st.form_submit_button("Send")
-    
-    if submit_button and user_input.strip():
-        # Process outside the form to prevent immediate rerun issues
-        st.session_state.current_input = user_input
+    # User input form
+    with st.form(key="message_form", clear_on_submit=True):
+        col1, col2 = st.columns([6, 1])
+        with col1:
+            user_input = st.text_area("Ask me to generate code...", height=100, key=st.session_state.input_key)
+        with col2:
+            st.write("")
+            st.write("")
+            submit_button = st.form_submit_button("Send")
+        
+        if submit_button and user_input.strip():
+            # Process outside the form to prevent immediate rerun issues
+            st.session_state.current_input = user_input
 
-# Process the submitted input (if any)
-if 'current_input' in st.session_state and st.session_state.current_input:
-    user_input = st.session_state.current_input
-    st.session_state.current_input = None  # Clear it to prevent reprocessing
-    handle_submit(user_input)
+    # Process the submitted input (if any)
+    if 'current_input' in st.session_state and st.session_state.current_input:
+        user_input = st.session_state.current_input
+        st.session_state.current_input = None  # Clear it to prevent reprocessing
+        handle_submit(user_input)
 
-# Add a clear button to delete all chat history
-if st.button("Clear Chat History"):
-    st.session_state.chat_history = []
-    st.rerun()
+    # Add a clear button to delete all chat history
+    if st.button("Clear Chat History"):
+        st.session_state.chat_history = []
+        st.rerun()  # Updated to use st.rerun() only once
 
-# Instructions in sidebar
-st.sidebar.title("Setup Instructions")
-st.sidebar.info(
-    "To use this application, you need a Gemini API key.\n\n"
-    "1. Create a `.env` file in the project root directory\n"
-    "2. Add your API key as: `GEMINI_API_KEY=your_api_key_here`\n"
-    "3. Create a `.gitignore` file and add `.env` to it to keep your key secure"
-)
+    # Show example prompts in the sidebar
+    st.sidebar.title("Example Prompts")
+    st.sidebar.markdown("""
+    - "Create a Python function to find prime numbers"
+    - "Write HTML and CSS for a responsive navigation bar"
+    - "Generate a JavaScript function that calculates Fibonacci sequence"
+    - "Build a Flask API with a POST endpoint to accept JSON data"
+    - "Create a React component for a form with validation"
+    """)
 
-# Add information about available models
-st.sidebar.title("Available Models")
-if st.sidebar.button("List Available Models"):
-    model_names = list_available_models()
-    if isinstance(model_names, list):
-        st.sidebar.write("These models are available with your API key:")
-        for name in model_names:
-            st.sidebar.write(f"- {name}")
-    else:
-        st.sidebar.error(model_names)  # Display error message
-
-# Show example prompts
-st.sidebar.title("Example Prompts")
-st.sidebar.markdown("""
-- "Create a Python function to find prime numbers"
-- "Write HTML and CSS for a responsive navigation bar"
-- "Generate a JavaScript function that calculates Fibonacci sequence"
-- "Build a Flask API with a POST endpoint to accept JSON data"
-- "Create a React component for a form with validation"
-""")
+# Add this condition to ensure proper script execution
+if __name__ == "__main__":
+    main()
