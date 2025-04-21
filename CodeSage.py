@@ -805,8 +805,6 @@ def main():
     
     # Show session management commands
     st.sidebar.title("Session Commands")
-    # Show session management commands
-    st.sidebar.title("Session Commands")
     st.sidebar.markdown("""
     - "Create a new session called [name]"
     - "Rename this session to [name]"
